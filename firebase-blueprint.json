@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile data including dietary flags and tier status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "dietaryFlags": {
+          "type": "object",
+          "properties": {
+            "halal": { "type": "boolean" },
+            "vegan": { "type": "boolean" },
+            "vegetarian": { "type": "boolean" },
+            "noBeef": { "type": "boolean" },
+            "glutenFree": { "type": "boolean" }
+          }
+        },
+        "paymentCards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "number": { "type": "string" },
+              "expiry": { "type": "string" }
+            }
+          }
+        },
+        "tier": { "type": "string", "enum": ["NEON", "CYBER", "QUANTUM"] },
+        "credits": { "type": "number" },
+        "orderHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "items": { "type": "array", "items": { "type": "string" } },
+              "total": { "type": "number" },
+              "date": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Global order tracking (optional, if needed outside user profile).",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "uid": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "COMPLETED", "CANCELLED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "uid", "items", "total", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile document."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Order document."
+    }
+  }
+}

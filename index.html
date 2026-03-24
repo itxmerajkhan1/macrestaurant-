@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <title>Meraj Restaurant </title>
+    <link rel="preconnect" href="https://ai-studio-applet-webapp-ff2ed.firebaseapp.com">
+    <link rel="preconnect" href="https://ai-studio-applet-webapp-ff2ed.web.app">
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+    <script>
+      // Polyfill global for libraries that expect it
+      if (typeof global === 'undefined') {
+        window.global = window;
+      }
+      
+      // Safeguard against libraries trying to override fetch if it's a read-only getter
+      (function() {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+        if (descriptor && !descriptor.writable && !descriptor.set) {
+          console.warn('window.fetch is read-only. Preventing potential override errors.');
+          // We can't do much if it's read-only, but we can try to catch errors from libraries
+          // that might try to assign to it.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

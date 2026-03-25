@@ -16,21 +16,49 @@ import {
   Hash
 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { useAuth, handleFirestoreError, OperationType } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { GlobalOrder } from '../types';
 
 export default function Checkout() {
+  const { user, userProfile, updateUserProfile, loading: authLoading } = useAuth();
   const { cartItems, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [orderId, setOrderId] = useState('');
 
+  // Wait Rule: Guard protected page
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F0F0F] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#FFC72C] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // JSON Guard: Fallback for userProfile
+  const profile = userProfile || {
+    displayName: 'CITIZEN',
+    email: user.email || '',
+    rewards: 0,
+    savings: 0,
+    orderHistory: [],
+    paymentCards: []
+  };
+
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
+    fullName: profile.displayName || '',
+    email: profile.email || '',
     phone: '',
     address: '',
     city: '',
@@ -43,7 +71,7 @@ export default function Checkout() {
   useEffect(() => {
     if (isSuccess) {
       const timer = setTimeout(() => {
-        navigate('/');
+        navigate('/profile');
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -72,24 +100,63 @@ export default function Checkout() {
     e.preventDefault();
     setIsProcessing(true);
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    try {
+      // Real Transaction: Firebase addDoc call
+      const orderData = {
+        items: cartItems.map(item => item.name),
+        total: totalPrice,
+        totalPrice: totalPrice, // User requested field
+        userEmail: user.email || 'itxmerajkhan3109@gmail.com', // User requested field
+        userId: user.uid,
+        customerName: profile.displayName || formData.fullName,
+        location: `${formData.address}, ${formData.city}`,
+        status: 'Pending' as const, // User requested field
+        timestamp: serverTimestamp(), // User requested field
+        date: new Date().toISOString()
+      };
 
-    const newOrderId = `#MC-${Math.floor(1000 + Math.random() * 9000)}`;
-    setOrderId(newOrderId);
-    setIsProcessing(false);
-    setIsSuccess(true);
-    
-    // Trigger Confetti
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#FFC72C', '#DA291C', '#FFFFFF']
-    });
+      // Save to global orders collection with auto-generated ID
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      const newOrderId = docRef.id;
+      
+      // Update user profile
+      const newOrder = {
+        id: newOrderId,
+        date: orderData.date,
+        items: orderData.items,
+        total: totalPrice,
+        status: 'pending' as const
+      };
 
-    clearCart();
-    toast.success('ORDER TRANSMITTED TO SECTOR 7! 🚀');
+      const currentHistory = profile.orderHistory || [];
+      const currentRewards = profile.rewards || 0;
+      const currentSavings = profile.savings || 0;
+
+      await updateUserProfile({
+        orderHistory: [newOrder, ...currentHistory],
+        rewards: currentRewards + 10, // 10 points per order
+        savings: currentSavings + (totalPrice * 0.05) // 5% "savings" simulation
+      });
+
+      setOrderId(newOrderId);
+      setIsProcessing(false);
+      setIsSuccess(true);
+      
+      // Trigger Confetti
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FFC72C', '#DA291C', '#FFFFFF']
+      });
+
+      clearCart();
+      toast.success('TRANSACTION AUTHORIZED! 🚀');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'orders');
+      toast.error("TRANSACTION FAILED. CHECK NEURAL LINK.");
+      setIsProcessing(false);
+    }
   };
 
   if (isSuccess) {
@@ -104,7 +171,7 @@ export default function Checkout() {
             <CheckCircle2 className="w-12 h-12 text-[#00FF00] animate-bounce" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-5xl font-black tracking-tighter uppercase italic text-[#00FF00] drop-shadow-[0_0_10px_rgba(0,255,0,0.5)]">CONFIRMED</h2>
+            <h2 className="text-5xl font-black tracking-tighter uppercase italic text-[#00FF00] drop-shadow-[0_0_10px_rgba(0,255,0,0.5)]">TRANSACTION AUTHORIZED</h2>
             <p className="text-white/40 font-mono text-xs tracking-widest uppercase">ORDER {orderId} TRANSMITTED</p>
           </div>
           <div className="space-y-4">
@@ -112,15 +179,29 @@ export default function Checkout() {
               Order Confirmed! Your Big Mac is on the way! 🍟
             </p>
             <p className="text-white/40 text-[10px] font-mono uppercase tracking-widest">
-              REDIRECTING TO HUB IN 5 SECONDS...
+              REDIRECTING TO PROFILE IN 5 SECONDS...
             </p>
           </div>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full py-5 bg-[#FFC72C] text-black rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(255,199,44,0.3)] flex items-center justify-center gap-2 group"
-          >
-            RETURN TO HUB <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
+          <div className="space-y-4">
+            <button 
+              onClick={() => {
+                setIsSuccess(false);
+                navigate('/profile');
+              }}
+              className="w-full py-5 bg-[#FFC72C] text-black rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(255,199,44,0.3)] flex items-center justify-center gap-2 group"
+            >
+              VIEW PROFILE <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button 
+              onClick={() => {
+                setIsSuccess(false);
+                navigate('/');
+              }}
+              className="w-full py-5 glass border-white/10 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all"
+            >
+              BACK TO HOME
+            </button>
+          </div>
         </motion.div>
       </div>
     );

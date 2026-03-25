@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Tag, Clock, Zap, Sparkles, ArrowRight, Timer } from 'lucide-react';
+import { Tag, Clock, Zap, Sparkles, ArrowRight, Timer, Copy, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useCart } from '../contexts/CartContext';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface Deal {
   id: string;
@@ -12,47 +15,71 @@ interface Deal {
   expiry: number; // seconds
   color: 'gold' | 'red';
   image: string;
+  price: number; // Added price for cart integration
 }
 
 const DEALS: Deal[] = [
   {
-    id: '1',
+    id: 'deal_1',
     title: 'NEON BREAKFAST',
     description: 'BOGO on all McMuffins before 10:30 AM.',
     discount: 'BUY 1 GET 1',
     code: 'MORNING_NEON',
     expiry: 3600,
     color: 'gold',
-    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600'
+    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600',
+    price: 4.99
   },
   {
-    id: '2',
+    id: 'deal_2',
     title: 'CYBER QUARTER',
     description: 'Quarter Pounder with Cheese for half the credits.',
     discount: '50% OFF',
     code: 'QUARTER_CYBER',
     expiry: 7200,
     color: 'red',
-    image: 'https://images.unsplash.com/photo-1594179047519-f347310d3322?q=80&w=600'
+    image: 'https://images.unsplash.com/photo-1594179047519-f347310d3322?q=80&w=600',
+    price: 3.50
   },
   {
-    id: '3',
+    id: 'deal_3',
     title: 'DATA DESSERT',
     description: 'Free McFlurry with any order over $15.',
     discount: 'FREE ITEM',
     code: 'FLURRY_DATA',
     expiry: 1800,
     color: 'gold',
-    image: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=600'
+    image: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=600',
+    price: 0.00
   }
 ];
 
-export default function Deals() {
+import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+
+const Deals: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { addToCart } = useCart();
+  const navigate = useNavigate();
+
+  if (authLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#FFC72C] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
   const [timeLeft, setTimeLeft] = useState<Record<string, number>>({
-    '1': 3600,
-    '2': 7200,
-    '3': 1800
+    'deal_1': 3600,
+    'deal_2': 7200,
+    'deal_3': 1800
   });
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -74,6 +101,27 @@ export default function Deals() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleRedeem = (deal: Deal) => {
+    addToCart({
+      id: deal.id,
+      name: deal.title,
+      price: deal.price,
+      image: deal.image
+    });
+    toast.success('DEAL REDEEMED! ADDED TO NEURAL CART 🚀');
+  };
+
+  const handleCopy = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    toast.success('COUPON CODE COPIED TO CLIPBOARD!');
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const handleJoinRewards = () => {
+    navigate('/signup');
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -83,7 +131,7 @@ export default function Deals() {
     >
       <div className="max-w-7xl mx-auto w-full space-y-12">
         <div className="space-y-2">
-          <h2 className="text-5xl font-black tracking-tighter neon-red uppercase">SPECIAL DEALS</h2>
+          <h2 className="text-5xl font-black tracking-tighter neon-red uppercase italic">SPECIAL DEALS</h2>
           <p className="text-white/40 font-mono text-xs tracking-widest uppercase">TEMPORAL DISCOUNTS DETECTED</p>
         </div>
 
@@ -122,7 +170,7 @@ export default function Deals() {
                   </div>
                   
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-black tracking-tight group-hover:neon-gold transition-colors">{deal.title}</h3>
+                    <h3 className="text-2xl font-black tracking-tight group-hover:neon-gold transition-colors italic uppercase">{deal.title}</h3>
                     <p className="text-sm text-white/40 font-light leading-relaxed">{deal.description}</p>
                   </div>
                 </div>
@@ -133,12 +181,28 @@ export default function Deals() {
                       <p className="text-[8px] font-mono text-white/20 uppercase tracking-widest">NEURAL CODE</p>
                       <p className="text-sm font-mono font-bold tracking-tighter">{deal.code}</p>
                     </div>
-                    <button className="text-[10px] font-bold neon-gold hover:underline">COPY</button>
+                    <motion.button 
+                      type="button"
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleCopy(deal.code)}
+                      className="text-[10px] font-bold neon-gold hover:underline flex items-center gap-1"
+                    >
+                      {copiedCode === deal.code ? (
+                        <>COPIED <Check className="w-3 h-3" /></>
+                      ) : (
+                        <>COPY <Copy className="w-3 h-3" /></>
+                      )}
+                    </motion.button>
                   </div>
                   
-                  <button className="w-full py-3 glass rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-2">
-                    REDEEM NOW <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <motion.button 
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleRedeem(deal)}
+                    className="w-full py-3 bg-[#FFC72C] text-black rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_15px_rgba(255,199,44,0.2)] flex items-center justify-center gap-2 group"
+                  >
+                    REDEEM NOW <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
                 </div>
               </div>
             </motion.div>
@@ -148,7 +212,7 @@ export default function Deals() {
         {/* Bonus Section */}
         <div className="glass p-8 rounded-3xl border-l-4 border-l-[#FFC72C] flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-2">
-            <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
+            <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 uppercase italic">
               <Sparkles className="w-6 h-6 neon-gold" /> UNLOCK HIDDEN PERKS
             </h3>
             <p className="text-sm text-white/40 max-w-xl">
@@ -156,11 +220,18 @@ export default function Deals() {
               Exclusive 8K grade deals await our loyal sector citizens.
             </p>
           </div>
-          <button className="px-8 py-4 btn-neon-gold whitespace-nowrap">
+          <motion.button 
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={handleJoinRewards}
+            className="px-8 py-4 bg-[#FFC72C] text-black rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(255,199,44,0.3)]"
+          >
             JOIN REWARDS
-          </button>
+          </motion.button>
         </div>
       </div>
     </motion.div>
   );
-}
+};
+
+export default Deals;

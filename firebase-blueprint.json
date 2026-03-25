@@ -10,6 +10,8 @@
         "email": { "type": "string", "format": "email" },
         "photoURL": { "type": "string" },
         "bio": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["Manager", "Staff", "Citizen"] },
         "dietaryFlags": {
           "type": "object",
           "properties": {
@@ -50,27 +52,35 @@
     },
     "Order": {
       "title": "Order",
-      "description": "Global order tracking (optional, if needed outside user profile).",
+      "description": "Global order tracking.",
       "type": "object",
       "properties": {
-        "orderId": { "type": "string" },
-        "uid": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "price": { "type": "number" },
-              "quantity": { "type": "number" }
-            }
-          }
-        },
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "items": { "type": "array", "items": { "type": "string" } },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["PENDING", "COMPLETED", "CANCELLED"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Processing", "Out for Delivery", "Delivered", "Cancelled"] },
+        "date": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       },
-      "required": ["orderId", "uid", "items", "total", "status", "createdAt"]
+      "required": ["id", "userId", "items", "total", "status", "date"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Log of administrative actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "adminId": { "type": "string" },
+        "adminEmail": { "type": "string", "format": "email" },
+        "actionType": { "type": "string", "enum": ["CANCEL_ORDER", "UPDATE_ORDER_STATUS", "MODIFY_USER_DATA", "SYSTEM_REBOOT"] },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "adminId", "adminEmail", "actionType", "targetId", "timestamp"]
     }
   },
   "firestore": {
@@ -81,6 +91,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Order document."
+    },
+    "/admin_audit_log/{logId}": {
+      "schema": "AuditLog",
+      "description": "Administrative audit log document."
     }
   }
 }

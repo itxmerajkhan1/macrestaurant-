@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { Zap, Sparkles, ArrowRight, Clock, ShieldCheck, MapPin } from 'lucide-react';
 
 interface HomeProps {
@@ -7,6 +9,20 @@ interface HomeProps {
 }
 
 export default function Home({ onNavigate }: HomeProps) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#FFC72C] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

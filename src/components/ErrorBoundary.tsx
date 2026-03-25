@@ -29,12 +29,19 @@ export class ErrorBoundary extends Component<Props, State> {
       
       // Check if it's a Firestore error
       try {
-        const parsedError = JSON.parse(this.state.error?.message || "");
-        if (parsedError.error && parsedError.operationType) {
-          errorMessage = `Database error during ${parsedError.operationType}. Access denied or invalid data.`;
+        const message = this.state.error?.message;
+        if (message && typeof message === 'string' && message.trim().startsWith('{') && message !== 'undefined') {
+          try {
+            const parsedError = JSON.parse(message);
+            if (parsedError && typeof parsedError === 'object' && parsedError.error && parsedError.operationType) {
+              errorMessage = `Database error during ${parsedError.operationType}. Access denied or invalid data.`;
+            }
+          } catch (parseErr) {
+            // Not valid JSON, ignore
+          }
         }
       } catch (e) {
-        // Not a JSON error message
+        // Fallback
       }
 
       return (

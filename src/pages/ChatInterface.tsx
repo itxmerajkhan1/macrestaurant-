@@ -3,6 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Bot, ShieldCheck, Sparkles, Zap, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { Navigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { MENU_JSON } from '../constants';
 import { ChatMessage } from '../types';
 import { cn } from '../lib/utils';
@@ -22,7 +24,7 @@ const OPENING_LINES = [
 ];
 
 export default function ChatInterface() {
-  const { userProfile, updateUserProfile } = useAuth();
+  const { user, userProfile, updateUserProfile, loading: authLoading } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,13 +32,32 @@ export default function ChatInterface() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Wait Rule: Guard protected page
+  if (authLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#FFC72C] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // JSON Guard: Fallback for userProfile
+  const profile = userProfile || {
+    displayName: 'CITIZEN',
+    dietaryFlags: { vegan: false, halal: false, vegetarian: false, glutenFree: false, noBeef: false }
+  };
+
   useEffect(() => {
-    if (userProfile && messages.length === 0) {
-      const name = userProfile.displayName.split(' ')[0].toUpperCase();
+    if (profile && messages.length === 0) {
+      const name = profile.displayName.split(' ')[0].toUpperCase();
       const line = OPENING_LINES[Math.floor(Math.random() * OPENING_LINES.length)].replace('{name}', name);
       setMessages([{ role: 'assistant', content: line }]);
     }
-  }, [userProfile, messages.length]);
+  }, [profile, messages.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,21 +67,23 @@ export default function ChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  const toggleDietaryFlag = async (flag: keyof typeof userProfile.dietaryFlags) => {
-    if (!userProfile) return;
+  const toggleDietaryFlag = async (flag: keyof typeof profile.dietaryFlags) => {
+    if (!profile) return;
     const newFlags = {
-      ...userProfile.dietaryFlags,
-      [flag]: !userProfile.dietaryFlags[flag]
+      ...profile.dietaryFlags,
+      [flag]: !profile.dietaryFlags[flag]
     };
     try {
       await updateUserProfile({ dietaryFlags: newFlags });
+      toast.success(`${flag.toUpperCase()} PROTOCOL UPDATED`);
     } catch (error) {
       console.error("Failed to update dietary flags:", error);
+      toast.error('FAILED TO UPDATE PROTOCOL');
     }
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !userProfile) return;
+    if (!input.trim() || isLoading || !profile) return;
 
     const userMessage: ChatMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -71,7 +94,7 @@ export default function ChatInterface() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
       
-      const activeFlags = Object.entries(userProfile.dietaryFlags)
+      const activeFlags = Object.entries(profile.dietaryFlags)
         .filter(([_, value]) => value)
         .map(([key]) => key);
 
@@ -79,7 +102,7 @@ export default function ChatInterface() {
         You are "Mac", a futuristic AI Concierge for a high-end McDonald's platform. 
         Tone: Cyberpunk, minimalist, efficient, yet warm. 
         Creator: The_me4aj.khan.
-        User Name: ${userProfile.displayName}.
+        User Name: ${profile.displayName}.
         
         RULES:
         - Suggest 1-3 items from MENU_JSON.
